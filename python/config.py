@@ -39,16 +39,25 @@ class RaspberryPi:
     def __init__(self):
     # SPI device, bus = 0, device = 0
         import spidev
-        import RPi.GPIO
+        #import RPi.GPIO
+        import gpiozero
         
-        self.GPIO = RPi.GPIO
+        #self.GPIO = RPi.GPIO
+        self.LED = gpiozero.LED
+        self.BUTTON = gpiozero.Button
         self.SPI = spidev.SpiDev(0, 0)
 
+        self.rst_pin = None
+        self.cs_pin = None
+        self.drdy_pin = None
+
     def digital_write(self, pin, value):
-        self.GPIO.output(pin, value)
+        #self.GPIO.output(pin, value)
+        self.LED(pin, initial_value=value)
 
     def digital_read(self, pin):
-        return self.GPIO.input(pin)
+        #return self.GPIO.input(pin)
+        return self.LED(pin).value
 
     def delay_ms(self, delaytime):
         time.sleep(delaytime / 1000.0)
@@ -60,21 +69,27 @@ class RaspberryPi:
         return self.SPI.readbytes(reg)
         
     def module_init(self):
-        self.GPIO.setmode(self.GPIO.BCM)
-        self.GPIO.setwarnings(False)
-        self.GPIO.setup(self.RST_PIN, self.GPIO.OUT)
-        self.GPIO.setup(self.CS_PIN, self.GPIO.OUT)
+        #self.GPIO.setmode(self.GPIO.BCM)
+        #self.GPIO.setwarnings(False)
+        #self.GPIO.setup(self.RST_PIN, self.GPIO.OUT)
+        #self.GPIO.setup(self.CS_PIN, self.GPIO.OUT)
+        self.rst_pin = self.LED(self.RST_PIN)
+        self.cs_pin = self.LED(self.CS_PIN)
         
-        self.GPIO.setup(self.DRDY_PIN, self.GPIO.IN, pull_up_down=self.GPIO.PUD_UP)
+        #self.GPIO.setup(self.DRDY_PIN, self.GPIO.IN, pull_up_down=self.GPIO.PUD_UP)
+        self.drdy_pin = self.BUTTON(self.DRDY_PIN, pull_up=True)
         self.SPI.max_speed_hz = 2000000
         self.SPI.mode = 0b01
         return 0;
 
     def module_exit(self):
         self.SPI.close()
-        self.GPIO.output(self.RST_PIN, 0)
-        self.GPIO.output(self.CS_PIN, 0)
-        self.GPIO.cleanup()
+        #self.GPIO.output(self.RST_PIN, 0)
+        #self.GPIO.output(self.CS_PIN, 0)
+        self.rst_pin.close()
+        self.cs_pin.close()
+        self.drdy_pin.close()
+        #self.GPIO.cleanup()
         
         
 class JetsonNano:
@@ -124,7 +139,8 @@ class JetsonNano:
 hostname = os.popen("uname -n").read().strip()
         
 #if os.path.exists('/sys/bus/platform/drivers/gpiomem-bcm2835'):
-if hostname == "raspberrypi":
+#if hostname == "raspberrypi":
+if True:
     implementation = RaspberryPi()
 else:
     implementation = JetsonNano()

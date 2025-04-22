@@ -27,8 +27,8 @@
 # THE SOFTWARE.
 #
 
-import config
-import RPi.GPIO as GPIO
+from config import RaspberryPi
+import gpiozero
 
 # gain
 ADS1263_GAIN = {
@@ -168,38 +168,48 @@ ADS1263_CMD = {
 
 class ADS1263:
     def __init__(self):
-        self.rst_pin = config.RST_PIN
-        self.cs_pin = config.CS_PIN
-        self.drdy_pin = config.DRDY_PIN
+        #self.rst_pin = config.RST_PIN
+        #self.cs_pin = config.CS_PIN
+        #self.drdy_pin = config.DRDY_PIN
+        self.rpi = RaspberryPi()
         self.ScanMode = 1
 
     # Hardware reset
     def ADS1263_reset(self):
-        config.digital_write(self.rst_pin, GPIO.HIGH)
-        config.delay_ms(200)
-        config.digital_write(self.rst_pin, GPIO.LOW)
-        config.delay_ms(200)
-        config.digital_write(self.rst_pin, GPIO.HIGH)
-        config.delay_ms(200)
+        #config.digital_write(self.rst_pin, GPIO.HIGH)
+        self.rpi.rst_pin.on()
+        self.rpi.delay_ms(200)
+        #config.digital_write(self.rst_pin, GPIO.LOW)
+        self.rpi.rst_pin.off()
+        self.rpi.delay_ms(200)
+        #config.digital_write(self.rst_pin, GPIO.HIGH)
+        self.rpi.rst_pin.on()
+        self.rpi.delay_ms(200)
     
     
     def ADS1263_WriteCmd(self, reg):
-        config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
-        config.spi_writebyte([reg])
-        config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
+        #config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
+        self.rpi.cs_pin.off()
+        self.rpi.spi_writebyte([reg])
+        #config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
+        self.rpi.cs_pin.on()
     
     
     def ADS1263_WriteReg(self, reg, data):
-        config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
-        config.spi_writebyte([ADS1263_CMD['CMD_WREG'] | reg, 0x00, data])
-        config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
+        #config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
+        self.rpi.cs_pin.off()
+        self.rpi.spi_writebyte([ADS1263_CMD['CMD_WREG'] | reg, 0x00, data])
+        #config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
+        self.rpi.cs_pin.on()
         
         
     def ADS1263_ReadData(self, reg):
-        config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
-        config.spi_writebyte([ADS1263_CMD['CMD_RREG'] | reg, 0x00])
-        data = config.spi_readbytes(1)
-        config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
+        #config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
+        self.rpi.cs_pin.off()
+        self.rpi.spi_writebyte([ADS1263_CMD['CMD_RREG'] | reg, 0x00])
+        data = self.rpi.spi_readbytes(1)
+        #config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
+        self.rpi.cs_pin.on()
         return data
 
     
@@ -221,7 +231,8 @@ class ADS1263:
         i = 0
         while(1):
             i+=1
-            if(config.digital_read(self.drdy_pin) == 0):
+            #if(config.digital_read(self.drdy_pin) == 0):
+            if self.rpi.drdy_pin.is_pressed:
                 break
             if(i >= 400000):
                 print ("Time Out ...\r\n")
@@ -354,7 +365,7 @@ class ADS1263:
 
     # Device initialization (ADC1)
     def ADS1263_init_ADC1(self, Rate1 = 'ADS1263_14400SPS'):
-        if (config.module_init() != 0):
+        if (self.rpi.module_init() != 0):
             return -1
         self.ADS1263_reset()
         id = self.ADS1263_ReadChipID()
@@ -371,7 +382,7 @@ class ADS1263:
 
     # Device initialization (ADC2)
     def ADS1263_init_ADC2(self, Rate2 = 'ADS1263_ADC2_100SPS'):
-        if (config.module_init() != 0):
+        if (self.rpi.module_init() != 0):
             return -1
         self.ADS1263_reset()
         id = self.ADS1263_ReadChipID()
@@ -387,14 +398,16 @@ class ADS1263:
         
     # Read ADC data
     def ADS1263_Read_ADC_Data(self):
-        config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
+        #config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
+        self.rpi.cs_pin.off()
         while(1):
-            config.spi_writebyte([ADS1263_CMD['CMD_RDATA1']])
+            self.rpi.spi_writebyte([ADS1263_CMD['CMD_RDATA1']])
             # config.delay_ms(10)
-            if(config.spi_readbytes(1)[0] & 0x40 != 0):
+            if(self.rpi.spi_readbytes(1)[0] & 0x40 != 0):
                 break
-        buf = config.spi_readbytes(5)
-        config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
+        buf = self.rpi.spi_readbytes(5)
+        #config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
+        self.rpi.cs_pin.on()
         read  = (buf[0]<<24) & 0xff000000
         read |= (buf[1]<<16) & 0xff0000
         read |= (buf[2]<<8) & 0xff00
@@ -409,14 +422,16 @@ class ADS1263:
     # Read ADC2 data
     def ADS1263_Read_ADC2_Data(self):
         read = 0
-        config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
+        #config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
+        self.rpi.cs_pin.off()
         while(1):
-            config.spi_writebyte([ADS1263_CMD['CMD_RDATA2']])
+            self.rpi.spi_writebyte([ADS1263_CMD['CMD_RDATA2']])
             # config.delay_ms(10)
-            if(config.spi_readbytes(1)[0] & 0x80 != 0):
+            if(self.rpi.spi_readbytes(1)[0] & 0x80 != 0):
                 break
-        buf = config.spi_readbytes(5)
-        config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
+        buf = self.rpi.spi_readbytes(5)
+        #config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
+        self.rpi.cs_pin.on()
         read |= (buf[0]<<16) & 0xff0000
         read |= (buf[1]<<8) & 0xff00
         read |= (buf[2]) & 0xff
@@ -480,7 +495,7 @@ class ADS1263:
         for i in range(0, 10, 1):
             ADC_Value[i] = self.ADS1263_GetChannalValue_ADC2(i)
             self.ADS1263_WriteCmd(ADS1263_CMD['CMD_STOP2'])
-            config.delay_ms(20) 
+            self.rpi.delay_ms(20) 
         return ADC_Value
         
         
@@ -492,35 +507,35 @@ class ADS1263:
         #MODE0 (CHOP OFF)
         MODE0 = Delay 
         self.ADS1263_WriteReg(ADS1263_REG['REG_MODE0'], MODE0) 
-        config.delay_ms(1) 
+        self.rpi.delay_ms(1) 
 
         #(IDACMUX) IDAC2 AINCOM,IDAC1 AIN3
         IDACMUX = (0x0a<<4) | 0x03 
         self.ADS1263_WriteReg(ADS1263_REG['REG_IDACMUX'], IDACMUX) 
-        config.delay_ms(1) 
+        self.rpi.delay_ms(1) 
 
         #((IDACMAG)) IDAC2 = IDAC1 = 250uA
         IDACMAG = (0x03<<4) | 0x03 
         self.ADS1263_WriteReg(ADS1263_REG['REG_IDACMAG'], IDACMAG) 
-        config.delay_ms(1) 
+        self.rpi.delay_ms(1) 
 
         MODE2 = (Gain << 4) | Drate 
         self.ADS1263_WriteReg(ADS1263_REG['REG_MODE2'], MODE2) 
-        config.delay_ms(1) 
+        self.rpi.delay_ms(1) 
 
         #INPMUX (AINP = AIN7, AINN = AIN6)
         INPMUX = (0x07<<4) | 0x06 
         self.ADS1263_WriteReg(ADS1263_REG['REG_INPMUX'], INPMUX) 
-        config.delay_ms(1) 
+        self.rpi.delay_ms(1) 
 
         # REFMUX AIN4 AIN5
         REFMUX = (0x03<<3) | 0x03 
         self.ADS1263_WriteReg(ADS1263_REG['REG_REFMUX'], REFMUX) 
-        config.delay_ms(1) 
+        self.rpi.delay_ms(1) 
 
         #Read one conversion
         self.ADS1263_WriteCmd(ADS1263_CMD['CMD_START1']) 
-        config.delay_ms(10) 
+        self.rpi.delay_ms(10) 
         self.ADS1263_WaitDRDY() 
         Value = self.ADS1263_Read_ADC_Data() 
         self.ADS1263_WriteCmd(ADS1263_CMD['CMD_STOP1']) 
@@ -545,7 +560,7 @@ class ADS1263:
         
         
     def ADS1263_Exit(self):
-        config.module_exit()
+        self.rpi.module_exit()
         
 ### END OF FILE ###
 
