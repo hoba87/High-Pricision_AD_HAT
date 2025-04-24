@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 
+from config import RaspberryPi
 import time
 import ADS1263
-import RPi.GPIO as GPIO
 
 REF = 5.08          # Modify according to actual voltage
                     # external AVDD and AVSS(Default), or internal 2.5V
@@ -18,7 +18,7 @@ TEST_ADC1_RATE   = False
 TEST_RTD        = False     
 
 try:
-    ADC = ADS1263.ADS1263()
+    ADC = ADS1263.ADS1263(config=RaspberryPi())
     
     # The faster the rate, the worse the stability
     # and the need to choose a suitable digital filter(REG_MODE1)
