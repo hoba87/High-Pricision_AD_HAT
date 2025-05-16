@@ -175,39 +175,30 @@ class ADS1263:
 
     # Hardware reset
     def ADS1263_reset(self):
-        #config.digital_write(self.rst_pin, GPIO.HIGH)
         self.config.rst_pin.on()
         self.config.delay_ms(200)
-        #config.digital_write(self.rst_pin, GPIO.LOW)
         self.config.rst_pin.off()
         self.config.delay_ms(200)
-        #config.digital_write(self.rst_pin, GPIO.HIGH)
         self.config.rst_pin.on()
         self.config.delay_ms(200)
     
     
     def ADS1263_WriteCmd(self, reg):
-        #config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
         self.config.cs_pin.off()
         self.config.spi_writebyte([reg])
-        #config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
         self.config.cs_pin.on()
     
     
     def ADS1263_WriteReg(self, reg, data):
-        #config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
         self.config.cs_pin.off()
         self.config.spi_writebyte([ADS1263_CMD['CMD_WREG'] | reg, 0x00, data])
-        #config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
         self.config.cs_pin.on()
         
         
     def ADS1263_ReadData(self, reg):
-        #config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
         self.config.cs_pin.off()
         self.config.spi_writebyte([ADS1263_CMD['CMD_RREG'] | reg, 0x00])
         data = self.config.spi_readbytes(1)
-        #config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
         self.config.cs_pin.on()
         return data
 
@@ -252,31 +243,23 @@ class ADS1263:
         MODE2 = 0x80    # 0x80:PGA bypassed, 0x00:PGA enabled
         MODE2 |= (gain << 4) | drate
         self.ADS1263_WriteReg(ADS1263_REG['REG_MODE2'], MODE2)
-        if(self.ADS1263_ReadData(ADS1263_REG['REG_MODE2'])[0] == MODE2):
-            print("REG_MODE2 success")
-        else:
-            print("REG_MODE2 unsuccess")
+        if(self.ADS1263_ReadData(ADS1263_REG['REG_MODE2'])[0] != MODE2):
+            print("REG_MODE2 error")
 
         REFMUX = 0x24   # 0x00:+-2.5V as REF, 0x24:VDD,VSS as REF
         self.ADS1263_WriteReg(ADS1263_REG['REG_REFMUX'], REFMUX)
-        if(self.ADS1263_ReadData(ADS1263_REG['REG_REFMUX'])[0] == REFMUX):
-            print("REG_REFMUX success")
-        else:
-            print("REG_REFMUX unsuccess")
+        if(self.ADS1263_ReadData(ADS1263_REG['REG_REFMUX'])[0] != REFMUX):
+            print("REG_REFMUX error")
             
         MODE0 = ADS1263_DELAY['ADS1263_DELAY_35us']
         self.ADS1263_WriteReg(ADS1263_REG['REG_MODE0'], MODE0)
-        if(self.ADS1263_ReadData(ADS1263_REG['REG_MODE0'])[0] == MODE0):
-            print("REG_MODE0 success")
-        else:
-            print("REG_MODE0 unsuccess")
+        if(self.ADS1263_ReadData(ADS1263_REG['REG_MODE0'])[0] != MODE0):
+            print("REG_MODE0 error")
 
         MODE1 = 0x84    # Digital Filter; 0x84:FIR, 0x64:Sinc4, 0x44:Sinc3, 0x24:Sinc2, 0x04:Sinc1
         self.ADS1263_WriteReg(ADS1263_REG['REG_MODE1'], MODE1)
-        if(self.ADS1263_ReadData(ADS1263_REG['REG_MODE1'])[0] == MODE1):
-            print("REG_MODE1 success")
-        else:
-            print("REG_MODE1 unsuccess")
+        if(self.ADS1263_ReadData(ADS1263_REG['REG_MODE1'])[0] != MODE1):
+            print("REG_MODE1 error")
 
     #The configuration parameters of ADC2, gain and data rate
     def ADS1263_ConfigADC2(self, gain, drate):
@@ -302,11 +285,8 @@ class ADS1263:
             return 0
         INPMUX = (Channal << 4) | 0x0a
         self.ADS1263_WriteReg(ADS1263_REG['REG_INPMUX'], INPMUX)
-        if(self.ADS1263_ReadData(ADS1263_REG['REG_INPMUX'])[0] == INPMUX):
-            # print("REG_INPMUX success")
-            pass
-        else:
-            print("REG_INPMUX unsuccess")
+        if(self.ADS1263_ReadData(ADS1263_REG['REG_INPMUX'])[0] != INPMUX):
+            print("REG_INPMUX error")
 
 
     # Set ADC2 Measuring channel
@@ -397,7 +377,6 @@ class ADS1263:
         
     # Read ADC data
     def ADS1263_Read_ADC_Data(self):
-        #config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
         self.config.cs_pin.off()
         while(1):
             self.config.spi_writebyte([ADS1263_CMD['CMD_RDATA1']])
@@ -405,7 +384,6 @@ class ADS1263:
             if(self.config.spi_readbytes(1)[0] & 0x40 != 0):
                 break
         buf = self.config.spi_readbytes(5)
-        #config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
         self.config.cs_pin.on()
         read  = (buf[0]<<24) & 0xff000000
         read |= (buf[1]<<16) & 0xff0000
@@ -421,7 +399,6 @@ class ADS1263:
     # Read ADC2 data
     def ADS1263_Read_ADC2_Data(self):
         read = 0
-        #config.digital_write(self.cs_pin, GPIO.LOW)#cs  0
         self.config.cs_pin.off()
         while(1):
             self.config.spi_writebyte([ADS1263_CMD['CMD_RDATA2']])
@@ -429,7 +406,6 @@ class ADS1263:
             if(self.config.spi_readbytes(1)[0] & 0x80 != 0):
                 break
         buf = self.config.spi_readbytes(5)
-        #config.digital_write(self.cs_pin, GPIO.HIGH)#cs 1
         self.config.cs_pin.on()
         read |= (buf[0]<<16) & 0xff0000
         read |= (buf[1]<<8) & 0xff00
