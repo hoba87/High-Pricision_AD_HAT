@@ -27,8 +27,6 @@
 # THE SOFTWARE.
 #
 
-import gpiozero
-
 # gain
 ADS1263_GAIN = {
     'ADS1263_GAIN_1' : 0,   # GAIN   1
@@ -37,7 +35,6 @@ ADS1263_GAIN = {
     'ADS1263_GAIN_8' : 3,   # GAIN   8
     'ADS1263_GAIN_16' : 4,  # GAIN  16
     'ADS1263_GAIN_32' : 5,  # GAIN  32
-    'ADS1263_GAIN_64' : 6,  # GAIN  64
 }
 # ADC2 gain
 ADS1263_ADC2_GAIN = {
@@ -112,6 +109,35 @@ ADS1263_DAC_VOLT = {
     'ADS1263_DAC_VLOT_2'        : 0b10111,
     'ADS1263_DAC_VLOT_1_5'      : 0b11000,
     'ADS1263_DAC_VLOT_0_5'      : 0b11001,
+}
+# IDAC out pin
+ADS1263_IDAC_PIN = {
+    'ADS1263_DAC_PIN_AIN0'       : 0b0000,
+    'ADS1263_DAC_PIN_AIN1'       : 0b0001,
+    'ADS1263_DAC_PIN_AIN2'       : 0b0010,
+    'ADS1263_DAC_PIN_AIN3'       : 0b0011,
+    'ADS1263_DAC_PIN_AIN4'       : 0b0100,
+    'ADS1263_DAC_PIN_AIN5'       : 0b0101,
+    'ADS1263_DAC_PIN_AIN6'       : 0b0110,
+    'ADS1263_DAC_PIN_AIN7'       : 0b0111,
+    'ADS1263_DAC_PIN_AIN8'       : 0b1000,
+    'ADS1263_DAC_PIN_AIN9'       : 0b1001,
+    'ADS1263_DAC_PIN_AINCOM'     : 0b1010,
+    'ADS1263_DAC_PIN_NOCONN'     : 0b1011,
+}
+# IDAC out current in uA
+ADS1263_IDAC_CURRENT = {
+    'ADS1263_DAC_CUR_0'       : 0b0000,
+    'ADS1263_DAC_CUR_50'      : 0b0001,
+    'ADS1263_DAC_CUR_100'     : 0b0010,
+    'ADS1263_DAC_CUR_250'     : 0b0011,
+    'ADS1263_DAC_CUR_500'     : 0b0100,
+    'ADS1263_DAC_CUR_750'     : 0b0101,
+    'ADS1263_DAC_CUR_1000'    : 0b0110,
+    'ADS1263_DAC_CUR_1500'    : 0b0111,
+    'ADS1263_DAC_CUR_2000'    : 0b1000,
+    'ADS1263_DAC_CUR_2500'    : 0b1001,
+    'ADS1263_DAC_CUR_3000'    : 0b1010,
 }
 # registration definition
 ADS1263_REG = {
@@ -239,27 +265,54 @@ class ADS1263:
         
         
     #The configuration parameters of ADC, gain and data rate
-    def ADS1263_ConfigADC(self, gain, drate):
-        MODE2 = 0x80    # 0x80:PGA bypassed, 0x00:PGA enabled
+    def ADS1263_ConfigADC(self, gain, drate, bypass_pga=False, reference_setting="internal"):
+        if bypass_pga:
+            MODE2 = 0x80
+        else:
+            MODE2 = 0x00
         MODE2 |= (gain << 4) | drate
-        self.ADS1263_WriteReg(ADS1263_REG['REG_MODE2'], MODE2)
-        if(self.ADS1263_ReadData(ADS1263_REG['REG_MODE2'])[0] != MODE2):
-            print("REG_MODE2 error")
 
-        REFMUX = 0x24   # 0x00:+-2.5V as REF, 0x24:VDD,VSS as REF
+        if reference_setting == "internal":
+            # 0x01: enable INTREF internal 2.5V Vref, 0x02: enable VBIAS Level Shift Voltage
+            POWER = 0x01
+            # 0x00:+-2.5V as REF, 0x24:VDD,VSS as REF
+            REFMUX = 0x00
+        elif reference_setting == "AVDD-AVSS":
+            POWER = 0x00
+            REFMUX = 0x24
+        else:
+            raise ValueError("reference setting unknown.")
+
+        delay = ADS1263_DELAY['ADS1263_DELAY_35us']
+        chop = 0x00  # 0x00: disabled, 0x10: input chop, 0x20: idac rot, 0x30: both
+        MODE0 = delay | chop
+
+        # Digital Filter; 0x80:FIR, 0x60:Sinc4, 0x40:Sinc3, 0x20:Sinc2, 0x00:Sinc1
+        # Sensor Bias ADC Conn: 0x00: ADC1, 0x10: ADC2
+        # Sensor Bias Polarity: 0x00: pull-up, 0x08: pull-down
+        # Sensor Bias Magnitude: 0x06: 10MOhm, 0x05: 200uA, 0x04: 50uA, 0x03: 10uA, 0x02: 2uA, 0x01: 0.5uA, 0x00: no bias
+        MODE1 = 0x80 | 0x00
+
+        INTERFACE = 0x04 | 0x01 # 0x04: STATUS byte enabled, 0x01: Checksum enabled
+
+        self.ADS1263_WriteReg(ADS1263_REG['REG_POWER'], POWER)
+        if(self.ADS1263_ReadData(ADS1263_REG['REG_POWER'])[0] != POWER):
+            print("REG_POWER error")
         self.ADS1263_WriteReg(ADS1263_REG['REG_REFMUX'], REFMUX)
         if(self.ADS1263_ReadData(ADS1263_REG['REG_REFMUX'])[0] != REFMUX):
             print("REG_REFMUX error")
-            
-        MODE0 = ADS1263_DELAY['ADS1263_DELAY_35us']
         self.ADS1263_WriteReg(ADS1263_REG['REG_MODE0'], MODE0)
         if(self.ADS1263_ReadData(ADS1263_REG['REG_MODE0'])[0] != MODE0):
             print("REG_MODE0 error")
-
-        MODE1 = 0x84    # Digital Filter; 0x84:FIR, 0x64:Sinc4, 0x44:Sinc3, 0x24:Sinc2, 0x04:Sinc1
         self.ADS1263_WriteReg(ADS1263_REG['REG_MODE1'], MODE1)
         if(self.ADS1263_ReadData(ADS1263_REG['REG_MODE1'])[0] != MODE1):
             print("REG_MODE1 error")
+        self.ADS1263_WriteReg(ADS1263_REG['REG_MODE2'], MODE2)
+        if(self.ADS1263_ReadData(ADS1263_REG['REG_MODE2'])[0] != MODE2):
+            print("REG_MODE2 error")
+        self.ADS1263_WriteReg(ADS1263_REG['REG_INTERFACE'], INTERFACE)
+        if(self.ADS1263_ReadData(ADS1263_REG['REG_INTERFACE'])[0] != INTERFACE):
+            print("REG_INTERFACE error")
 
     #The configuration parameters of ADC2, gain and data rate
     def ADS1263_ConfigADC2(self, gain, drate):
@@ -278,12 +331,23 @@ class ADS1263:
         else:
             print("REG_MODE0 unsuccess")
             
+    def ADS1263_ConfigDAC(self, idac1_pin=0b1011, idac2_pin=0b1011, idac1_current=0, idac2_current=0):
+        IDACMUX = idac1_pin | (idac2_pin << 4)
+        IDACMAG = idac1_current | (idac2_current << 4)
+
+        self.ADS1263_WriteReg(ADS1263_REG['REG_IDACMUX'], IDACMUX)
+        if(self.ADS1263_ReadData(ADS1263_REG['REG_IDACMUX'])[0] != IDACMUX):
+            print("REG_IDACMUX error")
+        self.ADS1263_WriteReg(ADS1263_REG['REG_IDACMAG'], IDACMAG)
+        if(self.ADS1263_ReadData(ADS1263_REG['REG_IDACMAG'])[0] != IDACMAG):
+            print("REG_IDACMAG error")
 
     # Set ADC1 Measuring channel
     def ADS1263_SetChannal(self, Channal):
         if Channal > 10:
             return 0
-        INPMUX = (Channal << 4) | 0x0a
+        INPMUX = (Channal << 4) # pos input
+        INPMUX |= 0x0a  # 0x0a: AINCOM as neg input
         self.ADS1263_WriteReg(ADS1263_REG['REG_INPMUX'], INPMUX)
         if(self.ADS1263_ReadData(ADS1263_REG['REG_INPMUX'])[0] != INPMUX):
             print("REG_INPMUX error")
@@ -381,7 +445,20 @@ class ADS1263:
         while(1):
             self.config.spi_writebyte([ADS1263_CMD['CMD_RDATA1']])
             # config.delay_ms(10)
-            if(self.config.spi_readbytes(1)[0] & 0x40 != 0):
+            STATUS = self.config.spi_readbytes(1)[0]
+            if STATUS & 0x40 == 0:
+                print("No new ADC data!")
+            else:
+                if STATUS & 0x12 != 0:
+                    if STATUS & 0x10 != 0:
+                        print("Low Reference Voltage Alarm!")
+                    if STATUS & 0x02 != 0:
+                        print("PGA Differential Output Alarm!")
+                if STATUS & 0x0C != 0:
+                    if STATUS & 0x08 != 0:
+                        print("PGA Output Low Alarm!")
+                    if STATUS & 0x04 != 0:
+                        print("PGA Output High Alarm!")
                 break
         buf = self.config.spi_readbytes(5)
         self.config.cs_pin.on()
@@ -393,6 +470,9 @@ class ADS1263:
         # print(read, CRC)
         if(self.ADS1263_CheckSum(read, CRC) != 0):
             print("ADC1 data read error!")
+        else:
+            #print(f"ADC1 Checksum success: {read} {CRC}")
+            pass
         return read
  
  
