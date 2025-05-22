@@ -291,7 +291,7 @@ class ADS1263:
         # Sensor Bias ADC Conn: 0x00: ADC1, 0x10: ADC2
         # Sensor Bias Polarity: 0x00: pull-up, 0x08: pull-down
         # Sensor Bias Magnitude: 0x06: 10MOhm, 0x05: 200uA, 0x04: 50uA, 0x03: 10uA, 0x02: 2uA, 0x01: 0.5uA, 0x00: no bias
-        MODE1 = 0x80 | 0x00
+        MODE1 = 0x60 | 0x00
 
         INTERFACE = 0x04 | 0x01 # 0x04: STATUS byte enabled, 0x01: Checksum enabled
 
